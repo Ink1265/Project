@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบสแกนหน้าเข้าเรียนออนไลน์</title>
+    <!-- โหลดไลบรารี Face-API จาก CDN -->
+    <script defer src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f2f5;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            text-align: center;
+            max-width: 500px;
+            width: 100%;
+        }
+        h2 { color: #1a73e8; }
+        .video-container {
+            position: relative;
+            margin: 20px auto;
+            width: 400px;
+            height: 300px;
+            background: #000;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+        .btn {
+            background-color: #1a73e8;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+        .btn:hover { background-color: #1557b0; }
+        .status {
+            margin-top: 15px;
+            font-weight: bold;
+            color: #5f6368;
+        }
+        .admin-link {
+            margin-top: 20px;
+            display: block;
+            color: #5f6368;
+            text-decoration: none;
+            font-size: 14px;
+        }
+        .admin-link:hover { text-decoration: underline; color: #1a73e8; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>📸 ระบบสแกนหน้าเข้าเรียน</h2>
+    <p>กรุณาส่องหน้าให้ตรงกล้องเพื่อบันทึกเวลาเรียน</p>
+    
+    <div class="video-container">
+        <video id="video" autoplay muted></video>
+    </div>
+
+    <button class="btn" onclick="scanFace()">🎯 สแกนใบหน้าเข้าเรียน</button>
+    <div class="status" id="status">กำลังโหลดระบบตรวจจับใบหน้า...</div>
+
+    <!-- ลิงก์สำหรับหน้าควบคุม (Dashboard/Admin) -->
+    <a href="#admin-panel" class="admin-link" onclick="openAdmin()">⚙️ สำหรับผู้ดูแลระบบ (Control Panel)</a>
+</div>
+
+<script>
+    const video = document.getElementById('video');
+    const statusText = document.getElementById('status');
+
+    // โหลดโมเดล AI สำหรับตรวจจับใบหน้า
+    async function init() {
+        statusText.innerText = "กำลังโหลดโมเดล AI...";
+        await faceapi.nets.tinyFaceDetector.loadFromUri('https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model');
+        statusText.innerText = "ระบบพร้อมใช้งาน! กรุณากดปุ่มสแกน";
+        startVideo();
+    }
+
+    // เปิดใช้งานกล้องหน้า
+    function startVideo() {
+        navigator.mediaDevices.getUserMedia({ video: {} })
+            .then(stream => video.srcObject = stream)
+            .catch(err => {
+                console.error(err);
+                statusText.innerText = "ไม่สามารถเปิดกล้องได้ กรุณาอนุญาตสิทธิ์การใช้กล้อง";
+            });
+    }
+
+    // ฟังก์ชันจำลองการสแกนใบหน้า
+    async function scanFace() {
+        statusText.innerText = "กำลังวิเคราะห์ใบหน้า...";
+        
+        // ตรวจจับใบหน้าจากวิดีโอ
+        const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions());
+        
+        if (detections.length > 0) {
+            statusText.style.color = "green";
+            statusText.innerText = "✅ สแกนสำเร็จ! บันทึกเวลาเข้าเรียนเรียบร้อย";
+            
+            // บันทึกข้อมูลลง LocalStorage (จำลองเบสข้อมูลหลังบ้าน)
+            saveAttendance();
+        } else {
+            statusText.style.color = "red";
+            statusText.innerText = "❌ ไม่พบใบหน้า หรือภาพไม่ชัดเจน กรุณาลองใหม่";
+        }
+    }
+
+    // จำลองการบันทึกข้อมูลเข้าเรียน
+    function saveAttendance() {
+        let history = JSON.parse(localStorage.getItem('attendance')) || [];
+        const newRecord = {
+            id: "STD-" + Math.floor(1000 + Math.random() * 9000),
+            time: new Date().toLocaleString('th-TH')
+        };
+        history.push(newRecord);
+        localStorage.setItem('attendance', JSON.stringify(history));
+    }
+
+    // ฟังก์ชันเปิดหน้าควบคุม (Admin)
+    function openAdmin() {
+        let password = prompt("กรุณาใส่รหัสผ่านผู้ดูแลระบบ (รหัสทดสอบ: 1234):");
+        if(password === "1234") {
+            window.location.href = 'admin.html';
+        } else {
+            alert("รหัสผ่านไม่ถูกต้อง!");
+        }
+    }
+
+    // เริ่มทำงานเมื่อโหลดหน้าเว็บ
+    init();
+</script>
+
+</body>
+</html>
